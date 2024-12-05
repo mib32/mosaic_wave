@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wave Animation in WebGL</title>
+  <style>
+    canvas {
+      display: block;
+      margin: auto;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background-color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas width="500px" height="500px" id="waveCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById('waveCanvas');
+    canvas.width = window.innerWidth * 0.5; // Half of the window width
+    canvas.height = window.innerHeight * 0.5; // Half of the window height
+
+    const gl = canvas.getContext('webgl');
+    if (!gl) {
+      alert("WebGL not supported in this browser");
+    }
+
+
+    // Vertex shader
+    const vertexShaderSource = `
+        attribute vec2 a_position;
+        uniform float u_time;
+        uniform vec2 u_resolution;
+        varying float v_color;
+
+        void main() {
+            // Normalize the position
+            vec2 pos = a_position / u_resolution * 2.0 - 1.0;
+
+            // Apply sine wave transformation
+            float wave = sin(pos.x * 20.0 + u_time) * 90.0;
+            pos.x += wave / u_resolution.x;
+
+            v_color = abs(wave) / 20.0; // Pass wave intensity for coloring
+            gl_Position = vec4(pos, 0, 1);
+            gl_PointSize = 5.0;
+        }
+    `;
+
+    // Fragment shader
+    const fragmentShaderSource = `
+        precision mediump float;
+        varying float v_color;
+
+        void main() {
+            gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
+        }
+    `;
+
+    // Shader compilation helper
+    function createShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+      }
+      return shader;
+    }
+
+    // Program creation helper
+    function createProgram(gl, vertexShader, fragmentShader) {
+      const program = gl.createProgram();
+      gl.attachShader(program, vertexShader);
+      gl.attachShader(program, fragmentShader);
+      gl.linkProgram(program);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error(gl.getProgramInfoLog(program));
+        gl.deleteProgram(program);
+        return null;
+      }
+      return program;
+    }
+
+    // Create shaders and program
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    const program = createProgram(gl, vertexShader, fragmentShader);
+
+    // Lookup attribute/uniform locations
+    const positionLoc = gl.getAttribLocation(program, "a_position");
+    const timeLoc = gl.getUniformLocation(program, "u_time");
+    const resolutionLoc = gl.getUniformLocation(program, "u_resolution");
+
+    // Create a grid of particles
+    const particles = [];
+    const spacing = 80;
+    const numX = Math.floor(canvas.width / spacing);
+    const numY = Math.floor(canvas.height / spacing);
+
+    for (let y = 0; y < numY; y++) {
+      for (let x = 0; x < numX; x++) {
+        particles.push(x * spacing, y * spacing);
+      }
+    }
+
+    const particleBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, particleBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(particles), gl.STATIC_DRAW);
+
+    // Animation loop
+    function render(time) {
+      gl.clearColor(1.0, 1.0, 1.0, 1.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.useProgram(program);
+
+      // Set uniforms
+      gl.uniform1f(timeLoc, time * 0.001);
+      gl.uniform2f(resolutionLoc, canvas.width, canvas.height);
+
+      // Bind and draw particles
+      gl.enableVertexAttribArray(positionLoc);
+      gl.bindBuffer(gl.ARRAY_BUFFER, particleBuffer);
+      gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+      gl.drawArrays(gl.POINTS, 0, particles.length / 2);
+
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+  </script>
+</body>
+
+</html>
