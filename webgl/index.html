@@ -98,20 +98,45 @@
     const resolutionLoc = gl.getUniformLocation(program, "u_resolution");
 
     // Create a grid of particles
-    const particles = [];
-    const spacing = 80;
-    const numX = Math.floor(canvas.width / spacing);
-    const numY = Math.floor(canvas.height / spacing);
+    // Create vertices for points and lines
+      const points = [];
+      const lines = [];
+      const spacing = 50;
+      const numX = Math.floor(canvas.width / spacing);
+      const numY = Math.floor(canvas.height / spacing);
 
-    for (let y = 0; y < numY; y++) {
-      for (let x = 0; x < numX; x++) {
-        particles.push(x * spacing, y * spacing);
+      // Create points and lines
+      for (let y = 0; y < numY; y++) {
+        for (let x = 0; x < numX; x++) {
+          // Current point
+          const px = x * spacing;
+          const py = y * spacing;
+          points.push(px, py);
+
+          // Create horizontal line
+          if (x < numX - 1) {
+            const nextPx = (x + 1) * spacing;
+            lines.push(px, py, nextPx, py);
+          }
+
+          // Create vertical line
+          if (y < numY - 1) {
+            const nextPy = (y + 1) * spacing;
+            lines.push(px, py, px, nextPy);
+          }
+        }
       }
-    }
 
-    const particleBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, particleBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(particles), gl.STATIC_DRAW);
+      // Combine points and lines into a single buffer
+      const vertices = new Float32Array([ ...lines ]);
+
+      // Create the buffer and upload data
+      const gridBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, gridBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+      const particleBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, particleBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
 
     // Animation loop
     function render(time) {
@@ -124,12 +149,16 @@
       gl.uniform1f(timeLoc, time * 0.001);
       gl.uniform2f(resolutionLoc, canvas.width, canvas.height);
 
-      // Bind and draw particles
+      // Draw points
       gl.enableVertexAttribArray(positionLoc);
       gl.bindBuffer(gl.ARRAY_BUFFER, particleBuffer);
       gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.POINTS, 0, points.length / 2);
 
-      gl.drawArrays(gl.POINTS, 0, particles.length / 2);
+      // Draw lines
+      gl.bindBuffer(gl.ARRAY_BUFFER, gridBuffer);
+      gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.LINES, 0, lines.length / 2);
 
       requestAnimationFrame(render);
     }
