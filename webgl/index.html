@@ -32,21 +32,23 @@
     // Vertex shader
     const vertexShaderSource = `
         attribute vec2 a_position;
+        attribute float a_color;
         uniform float u_time;
         uniform vec2 u_resolution;
         varying float v_color;
 
         void main() {
-            // Normalize the position
+            // Normalize position
             vec2 pos = a_position / u_resolution * 2.0 - 1.0;
 
-            // Apply sine wave transformation
+            // Apply sine wave modulation
             float wave = sin(pos.x * 20.0 + u_time) * 90.0;
+            float wave2 = sin(pos.y * 10.0 + u_time) * 90.0;
             pos.x += wave / u_resolution.x;
+            pos.y += wave2 / u_resolution.y;
 
-            v_color = abs(wave) / 20.0; // Pass wave intensity for coloring
+            v_color = a_color; // Pass color to fragment shader
             gl_Position = vec4(pos, 0, 1);
-            gl_PointSize = 5.0;
         }
     `;
 
@@ -56,7 +58,8 @@
         varying float v_color;
 
         void main() {
-            gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
+            // Checkerboard pattern: black or white
+            gl_FragColor = vec4(vec3(v_color), 1.0); // Black (v_color=1.0) or white (v_color=0.0)
         }
     `;
 
@@ -94,49 +97,56 @@
 
     // Lookup attribute/uniform locations
     const positionLoc = gl.getAttribLocation(program, "a_position");
+    const colorLoc = gl.getAttribLocation(program, "a_color");
     const timeLoc = gl.getUniformLocation(program, "u_time");
     const resolutionLoc = gl.getUniformLocation(program, "u_resolution");
 
-    // Create a grid of particles
-    // Create vertices for points and lines
-      const points = [];
-      const lines = [];
-      const spacing = 50;
+    /// Create vertices for rectangles (quads)
+      const tiles = [];
+      const colors = [];
+      const spacing = 70;
       const numX = Math.floor(canvas.width / spacing);
       const numY = Math.floor(canvas.height / spacing);
 
-      // Create points and lines
-      for (let y = 0; y < numY; y++) {
-        for (let x = 0; x < numX; x++) {
-          // Current point
-          const px = x * spacing;
-          const py = y * spacing;
-          points.push(px, py);
+    // Create rectangles
+    for (let y = 0; y < numY; y++) {
+      for (let x = 0; x < numX; x++) {
+        // Tile top-left corner
+        const x0 = x * spacing;
+        const y0 = y * spacing;
 
-          // Create horizontal line
-          if (x < numX - 1) {
-            const nextPx = (x + 1) * spacing;
-            lines.push(px, py, nextPx, py);
-          }
+        // Tile bottom-right corner
+        const x1 = x0 + spacing;
+        const y1 = y0 + spacing;
 
-          // Create vertical line
-          if (y < numY - 1) {
-            const nextPy = (y + 1) * spacing;
-            lines.push(px, py, px, nextPy);
-          }
+        // Checkerboard pattern (0 for white, 1 for black)
+        const isBlack = (x + y) % 2 === 1 ? 1.0 : 0.0;
+
+        // Add two triangles to form a quad
+        tiles.push(
+          x0, y0, // Triangle 1
+          x1, y0,
+          x0, y1,
+          x0, y1, // Triangle 2
+          x1, y0,
+          x1, y1
+        );
+
+        // Add color for each vertex
+        for (let i = 0; i < 6; i++) {
+          colors.push(isBlack); // Black or white
         }
       }
+    }
 
-      // Combine points and lines into a single buffer
-      const vertices = new Float32Array([ ...lines ]);
+    const tileBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, tileBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tiles), gl.STATIC_DRAW);
 
-      // Create the buffer and upload data
-      const gridBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, gridBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-      const particleBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, particleBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
+    const colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
 
     // Animation loop
     function render(time) {
@@ -149,16 +159,18 @@
       gl.uniform1f(timeLoc, time * 0.001);
       gl.uniform2f(resolutionLoc, canvas.width, canvas.height);
 
-      // Draw points
+      // Bind position buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, tileBuffer);
+      gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
       gl.enableVertexAttribArray(positionLoc);
-      gl.bindBuffer(gl.ARRAY_BUFFER, particleBuffer);
-      gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
-      gl.drawArrays(gl.POINTS, 0, points.length / 2);
 
-      // Draw lines
-      gl.bindBuffer(gl.ARRAY_BUFFER, gridBuffer);
-      gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
-      gl.drawArrays(gl.LINES, 0, lines.length / 2);
+      // Bind color buffer
+      gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+      gl.vertexAttribPointer(colorLoc, 1, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(colorLoc);
+
+      // Draw triangles
+      gl.drawArrays(gl.TRIANGLES, 0, tiles.length / 2);
 
       requestAnimationFrame(render);
     }
