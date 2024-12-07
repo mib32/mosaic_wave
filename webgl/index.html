@@ -45,11 +45,16 @@
           // float wave = sin(pos.x * 20.0) * cos(u_time*1.1) * 120.0;
           float wave = sin(pos.x * 20.0 + u_time) * cos(u_time*1.1) * 120.0;
           // float wave = sin((pos.x * 20.0 + u_time) + cos(2.0*u_time + 1.0 )/2.0) * 90.0;
-          float wave2 = sin(pos.y * 10.0) * cos(u_time*1.1) * 150.0;
+          float wavey = sin(pos.y * 10.0) * cos(u_time*1.1) * 150.0;
+          float wave1 = sin(u_time * 0.5 - (cos(1.0*u_time) + 1.0) / 2.0) * 10.0;
+          float wave2 = cos(pos.x * 10.0) * 30.0;
+          // float wavey1 = sin(u_time * 0.5 - (cos(1.0*u_time) + 1.0) / 2.0) * 10.0;
+          float wavey2 = cos(pos.y * 9.0) * 17.0;
+          pos.x += (wave1 * wave2) / u_resolution.x;
 
           // Apply wave to x-position
-          pos.x += wave / u_resolution.x;
-          pos.y += wave2 / u_resolution.y;
+          // pos.x += wave / u_resolution.x;
+          pos.y += (wave1 * wavey2) / u_resolution.y;
 
           v_color = a_color; // Pass color to fragment shader
           gl_Position = vec4(pos, 0, 1);
