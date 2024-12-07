@@ -38,18 +38,20 @@
         varying float v_color;
 
         void main() {
-            // Normalize position
-            vec2 pos = a_position / u_resolution * 2.0 - 1.0;
+          // Normalize position
+          vec2 pos = a_position / u_resolution * 2.0 - 1.0;
 
-            // Apply sine wave modulation
-            float wave = sin(pos.x * 20.0 + u_time) * 90.0;
-            float wave2 = sin(pos.y * 10.0 + u_time) * 90.0;
-            pos.x += wave / u_resolution.x;
-            pos.y += wave2 / u_resolution.y;
+          // Standing wave function
+          float wave = sin(pos.x * 20.0) * cos(u_time*1.1) * 120.0;
+          float wave2 = sin(pos.y * 10.0) * cos(u_time*1.1) * 150.0;
 
-            v_color = a_color; // Pass color to fragment shader
-            gl_Position = vec4(pos, 0, 1);
-        }
+          // Apply wave to x-position
+          pos.x += wave / u_resolution.x;
+          pos.y += wave2 / u_resolution.y;
+
+          v_color = a_color; // Pass color to fragment shader
+          gl_Position = vec4(pos, 0, 1);
+      }
     `;
 
     // Fragment shader
@@ -104,7 +106,7 @@
     /// Create vertices for rectangles (quads)
       const tiles = [];
       const colors = [];
-      const spacing = 70;
+      const spacing = 90;
       const numX = Math.floor(canvas.width / spacing);
       const numY = Math.floor(canvas.height / spacing);
 
